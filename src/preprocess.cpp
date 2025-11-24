@@ -447,7 +447,7 @@ void Preprocess::l515_handler(const sensor_msgs::PointCloud2::ConstPtr &msg) {
     pl_surf.clear();
     pl_corn.clear();
     pl_full.clear();
-    pcl::PointCloud<pcl::PointXYZRGB> pl_orig;
+    pcl::PointCloud<pcl::PointXYZRGBA> pl_orig;
     pcl::fromROSMsg(*msg, pl_orig);
     int plsize = pl_orig.size();
     pl_corn.reserve(plsize);

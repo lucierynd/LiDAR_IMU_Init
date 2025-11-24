@@ -1,0 +1,49 @@
+common:
+    lid_topic:  "/scan_3D"
+    imu_topic:  "/imu/data"
+
+preprocess:
+    lidar_type: 4
+    scan_line: 6 # ignored for lidar_type=4
+    blind: 0.5
+    feature_extract_en: false
+
+initialization:
+    cut_frame_num: 1 # must be positive integer
+    orig_odom_freq: 15
+    mean_acc_norm: 9.805 # g unit
+    online_refine_time: 50
+    data_accum_length: 150
+    Rot_LI_cov: [ 0.0001, 0.0001, 0.0001 ]
+    Trans_LI_cov: [ 0.0001, 0.0001, 0.0001 ]
+
+mapping:
+    filter_size_surf: 0.01
+    filter_size_map: 0.05
+    gyr_cov: 2e3
+    acc_cov: 3e3
+    b_acc_cov: 1.0e-5 
+    b_gyr_cov: 1.0e-5
+    det_range: 2.2
+
+publish:
+    path_en:  true
+    scan_publish_en:  true       # false: close all the point cloud output
+    dense_publish_en: true       # false: low down the points number in a global-frame point clouds scan.
+    scan_bodyframe_pub_en: true  # true: output the point cloud scans in IMU-body-frame
+
+pcd_save:
+    pcd_save_en: false
+    interval: -1                 # how many LiDAR frames saved in each pcd file; 
+                                 # -1 : all frames will be saved in ONE pcd file, may lead to memory crash when having too much frames.
+
+
+# #Accelerometer
+# accelerometer_noise_density: 0.0018777097571808544 
+# accelerometer_random_walk: 5.5678980203396014e-05 
+
+# #Gyroscope
+# gyroscope_noise_density: 0.001569889015948259 
+# gyroscope_random_walk: 9.717815287020023e-07 
+
+# Need to multiply by 20 then square to get covariance

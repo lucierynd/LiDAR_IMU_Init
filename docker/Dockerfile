@@ -1,35 +1,80 @@
-# Author: Tae Young Kim
-# email: tyoung96@yonsei.ac.kr
+FROM ros:noetic-perception
 
-FROM ros:melodic
+# Use noninteractive mode for apt
+ENV DEBIAN_FRONTEND=noninteractive
 
-# Install PCL & Eigen & essential libraries
-RUN apt-get update && apt-get install -y cmake libeigen3-dev libpcl-dev \
-    ros-melodic-rviz ros-melodic-pcl-ros ros-melodic-eigen-conversions \
-    libatlas-base-dev libgoogle-glog-dev libsuitesparse-dev libglew-dev wget
+# =============================================================
+# Core development and ROS dependencies
+# =============================================================
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    libeigen3-dev \
+    libpcl-dev \
+    ros-noetic-rviz \
+    ros-noetic-pcl-ros \
+    ros-noetic-eigen-conversions \
+    libatlas-base-dev \
+    libgoogle-glog-dev \
+    libsuitesparse-dev \
+    libglew-dev \
+    python3-pip \
+    python3-tk \
+    libopencv-dev \
+    python3-opencv \
+    nano \
+    python3-smbus \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install matplotlib
-RUN apt-get update && apt-get install -y python-pip python-tk && pip install matplotlib
+# =============================================================
+# Python packages
+# =============================================================
+RUN pip3 install --no-cache-dir matplotlib
 
-# Install ceres-solver
-WORKDIR /home/
-RUN wget https://github.com/ceres-solver/ceres-solver/archive/refs/tags/2.0.0.tar.gz
-RUN tar zxf 2.0.0.tar.gz
-RUN cd ceres-solver-2.0.0
-RUN mkdir build && cd build
-RUN ls
-RUN cmake -DCMAKE_BUILD_TYPE=Release ./ceres-solver-2.0.0 && make -j2 && make install
+# =============================================================
+# Install Ceres Solver 2.0.0
+# =============================================================
+WORKDIR /home
+RUN wget https://github.com/ceres-solver/ceres-solver/archive/refs/tags/2.0.0.tar.gz && \
+    tar zxf 2.0.0.tar.gz && rm 2.0.0.tar.gz && \
+    mkdir ceres-solver-2.0.0/build && cd ceres-solver-2.0.0/build && \
+    cmake -DCMAKE_BUILD_TYPE=Release .. && \
+    make -j$(nproc) && make install && \
+    rm -rf /home/ceres-solver-2.0.0
 
-# Install livox driver
+# =============================================================
+# Setup Catkin workspace + livox driver
+# =============================================================
+RUN mkdir -p /home/catkin_ws/src
 WORKDIR /home/catkin_ws/src
-RUN wget https://github.com/Livox-SDK/livox_ros_driver/archive/refs/tags/v2.6.0.tar.gz
-RUN tar zxf v2.6.0.tar.gz && rm -rf v2.6.0.tar.gz
 
-RUN /bin/bash -c '. /opt/ros/melodic/setup.bash; catkin_init_workspace; cd .. && catkin_make'
+# Livox ROS driver (v2.6.0)
+RUN wget https://github.com/Livox-SDK/livox_ros_driver/archive/refs/tags/v2.6.0.tar.gz && \
+    tar zxf v2.6.0.tar.gz && rm v2.6.0.tar.gz
 
-# Load ROS environment at each run
-COPY ./ros_entrypoint.sh /
-RUN chmod 755 /ros_entrypoint.sh
+# Build workspace
+RUN /bin/bash -c "source /opt/ros/noetic/setup.bash && cd /home/catkin_ws && catkin_make"
+
+# =============================================================
+# Setup cyglidar driver
+# =============================================================
+RUN mkdir -p /home/d2_ws/src
+WORKDIR /home/d2_ws/src
+
+RUN git clone -b ROS1 https://github.com/CygLiDAR-ROS/cyglidar_d2.git && \
+    /bin/bash -c "source /opt/ros/noetic/setup.bash && cd /home/d2_ws && catkin_make"
+
+
+# =============================================================
+# Load ROS environment automatically
+# =============================================================
+WORKDIR /home
+
+COPY ./ros_entrypoint.sh /ros_entrypoint.sh
+RUN chmod +x /ros_entrypoint.sh
+
 ENTRYPOINT ["/ros_entrypoint.sh"]
-
 CMD ["bash"]
