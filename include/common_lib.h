@@ -3,6 +3,9 @@
 
 #include <so3_math.h>
 #include <Eigen/Eigen>
+#include <deque>
+#include <vector>
+#include <rclcpp/time.hpp>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
 #include <lidar_imu_init/msg/states.hpp>
@@ -34,7 +37,7 @@ using namespace Eigen;
 #define DEBUG_FILE_DIR(name)     (string(string(ROOT_DIR) + "Log/"+ name))
 #define RESULT_FILE_DIR(name)    (string(string(ROOT_DIR) + "result/"+ name))
 
-typedef lidar_imu_init::Pose6D     Pose6D;
+typedef lidar_imu_init::msg::Pose6D     Pose6D;
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointXYZRGB     PointTypeRGB;
 typedef pcl::PointCloud<PointType>    PointCloudXYZI;
@@ -63,7 +66,7 @@ struct MeasureGroup     // Lidar data and imu dates for the curent process
     };
     double lidar_beg_time;
     PointCloudXYZI::Ptr lidar;
-    deque<sensor_msgs::Imu::ConstPtr> imu;
+    deque<sensor_msgs::msg::Imu::ConstSharedPtr> imu;
 };
 
 struct StatesGroup
