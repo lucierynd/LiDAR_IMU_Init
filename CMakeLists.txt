@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 2.8.3)
+cmake_minimum_required(VERSION 3.8)
 project(lidar_imu_init)
 
-SET(CMAKE_BUILD_TYPE "Release")
+if(NOT CMAKE_BUILD_TYPE)
+  set(CMAKE_BUILD_TYPE Release)
+endif()
 
 ADD_COMPILE_OPTIONS(-std=c++14 )
 ADD_COMPILE_OPTIONS(-std=c++14 )
@@ -14,8 +16,10 @@ set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++14 -pthread -std=c++0x -std=c++14 -fexceptions")
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 message("Current CPU architecture: ${CMAKE_SYSTEM_PROCESSOR}")
+
 if(CMAKE_SYSTEM_PROCESSOR MATCHES "(x86)|(X86)|(amd64)|(AMD64)" )
   include(ProcessorCount)
   ProcessorCount(N)
@@ -42,60 +46,94 @@ set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}   ${OpenMP_C_FLAGS}")
 find_package(PythonLibs REQUIRED)
 find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h")
 
-find_package(catkin REQUIRED COMPONENTS
+# ROS dependencies
+find_package(std_msgs REQUIRED)
+find_package(rosidl_default_generators REQUIRED)
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(rclcpp_components REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_srvs REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(pcl_conversions REQUIRED)
+find_package(livox_ros_driver2 REQUIRED)
+find_package(tf2 REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(tf2_eigen REQUIRED)
+
+set(dependencies
+  rclcpp
+  rclcpp_components
   geometry_msgs
   nav_msgs
   sensor_msgs
-  roscpp
-  rospy
   std_msgs
+  std_srvs
+  visualization_msgs
   pcl_ros
-  tf
-  livox_ros_driver
-  message_generation
-  eigen_conversions
+  pcl_conversions
+  livox_ros_driver2
+  tf2
+  tf2_ros
+  tf2_eigen
 )
 
+# Thirdparty libraries
 find_package(Eigen3 REQUIRED)
-find_package(PCL 1.8 REQUIRED)
+find_package(PCL REQUIRED COMPONENTS common io)
 find_package(Ceres REQUIRED)
 
 message(Eigen: ${EIGEN3_INCLUDE_DIR})
+message(STATUS "PCL: ${PCL_INCLUDE_DIRS}")
 
-add_message_files(
-  FILES
-  Pose6D.msg
-  States.msg
+set(msg_files
+  "msg/Pose6D.msg"
+  "msg/States.msg"
 )
 
-include_directories(
-     ../../devel/include
-	${catkin_INCLUDE_DIRS} 
-  ${EIGEN3_INCLUDE_DIR}
+rosidl_generate_interfaces(${PROJECT_NAME}
+  ${msg_files}
+  DEPENDENCIES std_msgs
+)
+ament_export_dependencies(rosidl_default_runtime)
+
+add_executable(li_init_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
+target_include_directories(li_init_mapping PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
-  ${PYTHON_INCLUDE_DIRS}
-  include)
+)
+target_link_libraries(li_init_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} Eigen3::Eigen)
+target_include_directories(li_init_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
-generate_messages(
- DEPENDENCIES
- geometry_msgs
+list(APPEND EOL_LIST "foxy" "galactic" "eloquent" "dashing" "crystal" "humble")
+
+if($ENV{ROS_DISTRO} IN_LIST EOL_LIST)
+  # Custommsg to support foxy & galactic
+  rosidl_target_interfaces(li_init_mapping
+    ${PROJECT_NAME} "rosidl_typesupport_cpp")
+else()
+  rosidl_get_typesupport_target(cpp_typesupport_target
+    ${PROJECT_NAME} "rosidl_typesupport_cpp")
+  target_link_libraries(li_init_mapping ${cpp_typesupport_target})
+endif()
+
+ament_target_dependencies(li_init_mapping ${dependencies})
+
+# ---------------- Install --------------- #
+install(TARGETS li_init_mapping
+  DESTINATION lib/${PROJECT_NAME}
 )
 
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime
-  DEPENDS EIGEN3 PCL
-  INCLUDE_DIRS
+install(
+  DIRECTORY config launch rviz
+  DESTINATION share/${PROJECT_NAME}
 )
 
-add_executable(li_init
-        src/laserMapping.cpp
-        include/ikd-Tree/ikd_Tree.cpp
-        include/LI_init/LI_init.cpp
-        src/preprocess.cpp)
-
-target_link_libraries(li_init ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} ${CERES_LIBRARIES})
-target_include_directories(li_init PRIVATE ${PYTHON_INCLUDE_DIRS})
-
+ament_package()
 
 
 

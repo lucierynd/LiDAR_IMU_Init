@@ -9,7 +9,7 @@
 #include <so3_math.h>
 #include <Eigen/Eigen>
 #include <condition_variable>
-#include <eigen_conversions/eigen_msg.h>
+#include <tf2_eigen/tf2_eigen.hpp>
 #include <common_lib.h>
 #include <algorithm>
 #include <ceres/ceres.h>

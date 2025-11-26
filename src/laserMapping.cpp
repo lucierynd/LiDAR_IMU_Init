@@ -34,19 +34,21 @@
 // POSSIBILITY OF SUCH DAMAGE.
 #include <omp.h>
 #include "IMU_Processing.hpp"
-#include "ros/package.h"
 #include <unistd.h>
 #include <Python.h>
 #include <Eigen/Core>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
 #include <algorithm>
 #include <pcl_conversions/pcl_conversions.h>
 #include <pcl/filters/voxel_grid.h>
 #include <pcl/io/pcd_io.h>
-#include <tf/transform_datatypes.h>
-#include <tf/transform_broadcaster.h>
-#include <livox_ros_driver/CustomMsg.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_ros/transform_broadcaster.h>
+#include <geometry_msgs/msg/transform_stamped.hpp>
+#include <livox_ros_driver2/msg/custom_msg.hpp>
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
 #include <LI_init/LI_init.h>
@@ -102,7 +104,7 @@ ofstream fout_result;
 vector<BoxPointType> cub_needrm;
 deque<PointCloudXYZI::Ptr> lidar_buffer;
 deque<double> time_buffer;
-deque<sensor_msgs::Imu::Ptr> imu_buffer;
+deque<sensor_msgs::msg::Imu::Ptr> imu_buffer;
 vector<vector<int>> pointSearchInd_surf;
 vector<PointVector> Nearest_Points;
 bool point_selected_surf[100000] = {0};
@@ -144,7 +146,7 @@ nav_msgs::Path path;
 nav_msgs::Odometry odomAftMapped;
 geometry_msgs::Quaternion geoQuat;
 geometry_msgs::PoseStamped msg_body_pose;
-sensor_msgs::Imu IMU_sync;
+sensor_msgs::msg::Imu IMU_sync;
 
 shared_ptr<Preprocess> p_pre(new Preprocess());
 shared_ptr<LI_Init> Init_LI(new LI_Init());
@@ -344,7 +346,7 @@ void livox_pcl_cbk(const livox_ros_driver::CustomMsg::ConstPtr &msg) {
     sig_buffer.notify_all();
 }
 
-void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) {
+void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::ConstPtr &msg) {
     mtx_buffer.lock();
     scan_count++;
     if (msg->header.stamp.toSec() < last_timestamp_lidar) {
@@ -381,7 +383,7 @@ void standard_pcl_cbk(const sensor_msgs::PointCloud2::ConstPtr &msg) {
 }
 
 
-void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in, const ros::Publisher &pubIMU_sync) {
+void imu_cbk(const sensor_msgs::msg::Imu::ConstPtr &msg_in, const ros::Publisher &pubIMU_sync) {
     publish_count++;
     mtx_buffer.lock();
 
@@ -410,7 +412,7 @@ void imu_cbk(const sensor_msgs::Imu::ConstPtr &msg_in, const ros::Publisher &pub
     last_time_msg_in = time_msg_in;
 
 
-    sensor_msgs::Imu::Ptr msg(new sensor_msgs::Imu(*msg_in));
+    sensor_msgs::msg::Imu::Ptr msg(new sensor_msgs::msg::Imu(*msg_in));
 
     //IMU Time Compensation
     msg->header.stamp = ros::Time().fromSec(msg->header.stamp.toSec() - timediff_imu_wrt_lidar - time_lag_IMU_wtr_lidar);
@@ -575,7 +577,7 @@ void publish_frame_world(const ros::Publisher &pubLaserCloudFullRes) {
                                 &laserCloudWorld->points[i]);
         }
 
-        sensor_msgs::PointCloud2 laserCloudmsg;
+        sensor_msgs::msg::PointCloud2 laserCloudmsg;
         if (lidar_type == L515)
             pcl::toROSMsg(*laserCloudWorldRGB, laserCloudmsg);
         else
@@ -615,7 +617,7 @@ void publish_frame_world(const ros::Publisher &pubLaserCloudFullRes) {
 
 void publish_frame_body(const ros::Publisher &pubLaserCloudFullRes_body) {
     PointCloudXYZI::Ptr laserCloudFullRes(feats_undistort);
-    sensor_msgs::PointCloud2 laserCloudmsg;
+    sensor_msgs::msg::PointCloud2 laserCloudmsg;
     pcl::toROSMsg(*feats_undistort, laserCloudmsg);
     laserCloudmsg.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudmsg.header.frame_id = "camera_init";
@@ -628,7 +630,7 @@ void publish_effect_world(const ros::Publisher &pubLaserCloudEffect) {
     for (int i = 0; i < effect_feat_num; i++) {
         pointBodyToWorld(&laserCloudOri->points[i], &laserCloudWorld->points[i]);
     }
-    sensor_msgs::PointCloud2 laserCloudFullRes3;
+    sensor_msgs::msg::PointCloud2 laserCloudFullRes3;
     pcl::toROSMsg(*laserCloudWorld, laserCloudFullRes3);
     laserCloudFullRes3.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudFullRes3.header.frame_id = "camera_init";
@@ -636,7 +638,7 @@ void publish_effect_world(const ros::Publisher &pubLaserCloudEffect) {
 }
 
 void publish_map(const ros::Publisher &pubLaserCloudMap) {
-    sensor_msgs::PointCloud2 laserCloudMap;
+    sensor_msgs::msg::PointCloud2 laserCloudMap;
     pcl::toROSMsg(*featsFromMap, laserCloudMap);
     laserCloudMap.header.stamp = ros::Time().fromSec(lidar_end_time);
     laserCloudMap.header.frame_id = "camera_init";
@@ -864,19 +866,19 @@ int main(int argc, char **argv) {
         nh.subscribe(lid_topic, 200000, livox_pcl_cbk) : \
          nh.subscribe(lid_topic, 200000, standard_pcl_cbk);
 
-    ros::Publisher pubIMU_sync = nh.advertise<sensor_msgs::Imu>
+    ros::Publisher pubIMU_sync = nh.advertise<sensor_msgs::msg::Imu>
             ("/livox/imu/async", 100000);
-    ros::Subscriber sub_imu = nh.subscribe<sensor_msgs::Imu>
+    ros::Subscriber sub_imu = nh.subscribe<sensor_msgs::msg::Imu>
             (imu_topic, 200000, boost::bind(&imu_cbk, _1, pubIMU_sync));
 
 
-    ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::PointCloud2>
+    ros::Publisher pubLaserCloudFullRes = nh.advertise<sensor_msgs::msg::PointCloud2>
             ("/cloud_registered", 100000);
-    ros::Publisher pubLaserCloudFullRes_body = nh.advertise<sensor_msgs::PointCloud2>
+    ros::Publisher pubLaserCloudFullRes_body = nh.advertise<sensor_msgs::msg::PointCloud2>
             ("/cloud_registered_body", 100000);
-    ros::Publisher pubLaserCloudEffect = nh.advertise<sensor_msgs::PointCloud2>
+    ros::Publisher pubLaserCloudEffect = nh.advertise<sensor_msgs::msg::PointCloud2>
             ("/cloud_effected", 100000);
-    ros::Publisher pubLaserCloudMap = nh.advertise<sensor_msgs::PointCloud2>
+    ros::Publisher pubLaserCloudMap = nh.advertise<sensor_msgs::msg::PointCloud2>
             ("/Laser_map", 100000);
     ros::Publisher pubOdomAftMapped = nh.advertise<nav_msgs::Odometry>
             ("/aft_mapped_to_init", 100000);
