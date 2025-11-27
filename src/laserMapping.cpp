@@ -55,6 +55,7 @@
 #include "preprocess.h"
 #include <ikd-Tree/ikd_Tree.h>
 #include <LI_init/LI_init.h>
+#include <filesystem> 
 
 #ifndef DEPLOY
 #include "matplotlibcpp.h"
@@ -107,7 +108,7 @@ ofstream fout_result;
 vector<BoxPointType> cub_needrm;
 deque<PointCloudXYZI::Ptr> lidar_buffer;
 deque<double> time_buffer;
-deque<sensor_msgs::msg::Imu::SharedPtr> imu_buffer;
+deque<sensor_msgs::msg::Imu::ConstSharedPtr> imu_buffer;
 vector<vector<int>> pointSearchInd_surf;
 vector<PointVector> Nearest_Points;
 bool point_selected_surf[100000] = {0};
@@ -604,29 +605,29 @@ void publish_frame_world(const std::shared_ptr<rclcpp::Publisher<sensor_msgs::ms
     }
 
 
-    /**************** save map ****************/
-    /* 1. make sure you have enough memories
-       2. noted that pcd save will influence the real-time performences **/
-    if (pcd_save_en) {
-        boost::filesystem::create_directories(root_dir + "/PCD");
-        int size = feats_undistort->points.size();
-        PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
-        for (int i = 0; i < size; i++) {
-            pointBodyToWorld(&feats_undistort->points[i], &laserCloudWorld->points[i]);
-        }
+    // /**************** save map ****************/
+    // /* 1. make sure you have enough memories
+    //    2. noted that pcd save will influence the real-time performences **/
+    // if (pcd_save_en) {
+    //     boost::filesystem::create_directories(root_dir + "/PCD");
+    //     int size = feats_undistort->points.size();
+    //     PointCloudXYZI::Ptr laserCloudWorld(new PointCloudXYZI(size, 1));
+    //     for (int i = 0; i < size; i++) {
+    //         pointBodyToWorld(&feats_undistort->points[i], &laserCloudWorld->points[i]);
+    //     }
 
-        *pcl_wait_save += *laserCloudWorld;
-        static int scan_wait_num = 0;
-        scan_wait_num++;
-        if (pcl_wait_save->size() > 0 && pcd_save_interval > 0 && scan_wait_num >= pcd_save_interval) {
-            pcd_index++;
-            all_points_dir = string(root_dir + "/PCD/PCD") + to_string(pcd_index) + string(".pcd");
-            cout << "current scan saved to " << all_points_dir << endl;
-            pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
-            pcl_wait_save->clear();
-            scan_wait_num = 0;
-        }
-    }
+    //     *pcl_wait_save += *laserCloudWorld;
+    //     static int scan_wait_num = 0;
+    //     scan_wait_num++;
+    //     if (pcl_wait_save->size() > 0 && pcd_save_interval > 0 && scan_wait_num >= pcd_save_interval) {
+    //         pcd_index++;
+    //         all_points_dir = string(root_dir + "/PCD/PCD") + to_string(pcd_index) + string(".pcd");
+    //         cout << "current scan saved to " << all_points_dir << endl;
+    //         pcd_writer.writeBinary(all_points_dir, *pcl_wait_save);
+    //         pcl_wait_save->clear();
+    //         scan_wait_num = 0;
+    //     }
+    // }
 }
 
 void publish_frame_body(const std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::PointCloud2>> & pubLaserCloudFullRes_body) {
@@ -902,23 +903,31 @@ int main(int argc, char **argv) {
     Jaco_rot.setZero();
 
     /*** debug record ***/
-    boost::filesystem::create_directories(root_dir + "/Log");
-    boost::filesystem::create_directories(root_dir + "/result");
+    std::filesystem::create_directories(root_dir + "/Log");
+    std::filesystem::create_directories(root_dir + "/result");
+
     ofstream fout_out;
     fout_out.open(DEBUG_FILE_DIR("mat_out.txt"), ios::out);
     fout_result.open(RESULT_FILE_DIR("Initialization_result.txt"), ios::out);
+
     if (fout_out)
         cout << "~~~~" << ROOT_DIR << " file opened" << endl;
     else
         cout << "~~~~" << ROOT_DIR << " doesn't exist" << endl;
 
 
-        /*** ROS2 subscribe/publish initialization ***/
-        auto sub_pcl = (p_pre->lidar_type == AVIA)
-        ? node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, rclcpp::SensorDataQoS(), livox_pcl_cbk)
-        : node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
 
-        auto sub_imu = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, rclcpp::SensorDataQoS(), imu_cbk);
+        /*** ROS2 subscribe/publish initialization ***/
+        if (p_pre->lidar_type == AVIA)
+        {
+            auto sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, livox_pcl_cbk);
+        }
+        else
+        {
+            auto sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
+        }
+
+        auto sub_imu_ = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
 
         auto pubLaserCloudFullRes = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 10);
         auto pubLaserCloudFullRes_body = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_body", 10);
@@ -1267,8 +1276,11 @@ int main(int argc, char **argv) {
 
                     time_lag_IMU_wtr_lidar = Init_LI->get_total_time_lag(); //Compensate IMU's time in the buffer
                     for (int i = 0; i < imu_buffer.size(); i++) {
-                        double t = stamp_to_sec(imu_buffer[i]->header.stamp) - time_lag_IMU_wtr_lidar;
-                        imu_buffer[i]->header.stamp = sec_to_stamp(t);
+                        auto imu_msg = imu_buffer[i];  
+                        sensor_msgs::msg::Imu imu_copy = *imu_msg;
+                        double t = stamp_to_sec(imu_copy.header.stamp) - time_lag_IMU_wtr_lidar;
+                        imu_copy.header.stamp = sec_to_stamp(t);
+                        imu_buffer[i] = std::make_shared<sensor_msgs::msg::Imu>(imu_copy);
                     }
 
                     p_imu->imu_en = imu_en;

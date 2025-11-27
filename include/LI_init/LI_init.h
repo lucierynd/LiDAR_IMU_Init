@@ -226,7 +226,7 @@ public:
 
     void plot_result();
 
-    void push_ALL_IMU_CalibState(const sensor_msgs::Imu::ConstPtr &msg, const double &mean_acc_norm);
+    void push_ALL_IMU_CalibState(const sensor_msgs::msg::Imu::ConstSharedPtr &msg, const double &mean_acc_norm);
 
     void push_IMU_CalibState(const V3D &omg, const V3D &acc, const double &timestamp);
 

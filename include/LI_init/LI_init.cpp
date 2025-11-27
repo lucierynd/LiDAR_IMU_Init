@@ -51,13 +51,13 @@ void LI_Init::fout_before_filter() {
     }
 }
 
-void LI_Init::push_ALL_IMU_CalibState(const sensor_msgs::Imu::ConstPtr &msg, const double &mean_acc_norm) {
+void LI_Init::push_ALL_IMU_CalibState(const sensor_msgs::msg::Imu::ConstSharedPtr &msg, const double &mean_acc_norm) {
     CalibState IMUstate;
     IMUstate.ang_vel = V3D(msg->angular_velocity.x, msg->angular_velocity.y, msg->angular_velocity.z);
     IMUstate.linear_acc =
             V3D(msg->linear_acceleration.x, msg->linear_acceleration.y, msg->linear_acceleration.z) / mean_acc_norm *
             G_m_s2;
-    IMUstate.timeStamp = msg->header.stamp.toSec();
+    IMUstate.timeStamp = rclcpp::Time(msg->header.stamp).seconds();
     IMU_state_group_ALL.push_back(IMUstate);
 }
 
@@ -315,16 +315,12 @@ void LI_Init::zero_phase_filt(const deque<CalibState> &signal_in, deque<CalibSta
 }
 
 void LI_Init::solve_Rotation_only() {
-    double R_LI_quat[4];
-    R_LI_quat[0] = 1;
-    R_LI_quat[1] = 0;
-    R_LI_quat[2] = 0;
-    R_LI_quat[3] = 0;
+    
+    double q[4] = {q0, q1, q2, q3};
 
-    ceres::LocalParameterization *quatParam = new ceres::QuaternionParameterization();
-    ceres::Problem problem_rot;
-    problem_rot.AddParameterBlock(R_LI_quat, 4, quatParam);
-
+    auto quat_manifold = std::make_unique<ceres::QuaternionManifold>();
+    problem.AddParameterBlock(q, 4, quat_manifold.get());
+    manifolds_.push_back(std::move(quat_manifold));
 
     for (int i = 0; i < IMU_state_group.size(); i++) {
         M3D Lidar_angvel_skew;
