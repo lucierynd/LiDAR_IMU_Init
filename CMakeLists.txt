@@ -131,7 +131,7 @@ install(TARGETS li_init_mapping
 )
 
 install(
-  DIRECTORY config launch
+  DIRECTORY config launch rviz
   DESTINATION share/${PROJECT_NAME}
 )
 
