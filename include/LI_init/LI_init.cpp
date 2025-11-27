@@ -315,12 +315,18 @@ void LI_Init::zero_phase_filt(const deque<CalibState> &signal_in, deque<CalibSta
 }
 
 void LI_Init::solve_Rotation_only() {
-    
-    double q[4] = {q0, q1, q2, q3};
 
+    double R_LI_quat[4];
+    R_LI_quat[0] = 1;
+    R_LI_quat[1] = 0;
+    R_LI_quat[2] = 0;
+    R_LI_quat[3] = 0;
+
+    ceres::Problem problem_rot;
     auto quat_manifold = std::make_unique<ceres::QuaternionManifold>();
-    problem.AddParameterBlock(q, 4, quat_manifold.get());
+    problem_rot.AddParameterBlock(R_LI_quat, 4, quat_manifold.get());
     manifolds_.push_back(std::move(quat_manifold));
+
 
     for (int i = 0; i < IMU_state_group.size(); i++) {
         M3D Lidar_angvel_skew;
@@ -339,6 +345,7 @@ void LI_Init::solve_Rotation_only() {
 }
 
 void LI_Init::solve_Rot_bias_gyro(double &timediff_imu_wrt_lidar) {
+    
     Eigen::Quaterniond quat(Rot_Lidar_wrt_IMU);
     double R_LI_quat[4];
     R_LI_quat[0] = quat.w();
@@ -353,11 +360,11 @@ void LI_Init::solve_Rot_bias_gyro(double &timediff_imu_wrt_lidar) {
 
     double time_lag2 = 0; //Second time lag (IMU wtr Lidar)
 
-    ceres::LocalParameterization *quatParam = new ceres::QuaternionParameterization();
     ceres::Problem problem_ang_vel;
-
-    problem_ang_vel.AddParameterBlock(R_LI_quat, 4, quatParam);
+    auto quat_manifold = std::make_unique<ceres::QuaternionManifold>();
+    problem_ang_vel.AddParameterBlock(R_LI_quat, 4, quat_manifold.get());
     problem_ang_vel.AddParameterBlock(bias_g, 3);
+    manifolds_.push_back(std::move(quat_manifold));
 
     for (int i = 0; i < IMU_state_group.size(); i++) {
         double deltaT = Lidar_state_group[i].timeStamp - IMU_state_group[i].timeStamp;
@@ -416,12 +423,12 @@ void LI_Init::solve_trans_biasacc_grav() {
     Trans_IL[1] = 0.0;
     Trans_IL[2] = 0.0;
 
-    ceres::LocalParameterization *quatParam = new ceres::QuaternionParameterization();
     ceres::Problem problem_acc;
-
-    problem_acc.AddParameterBlock(R_GL0_quat, 4, quatParam);
+    auto quat_manifold = std::make_unique<ceres::QuaternionManifold>();
+    problem_acc.AddParameterBlock(R_GL0_quat, 4, quat_manifold.get());
     problem_acc.AddParameterBlock(bias_aL, 3);
     problem_acc.AddParameterBlock(Trans_IL, 3);
+    manifolds_.push_back(std::move(quat_manifold));
 
     //Jacobian of acc_bias, gravity, Translation
     int Jaco_size = 3 * Lidar_state_group.size();

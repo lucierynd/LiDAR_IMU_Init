@@ -106,10 +106,12 @@ target_include_directories(li_init_mapping PUBLIC
   $<INSTALL_INTERFACE:include>
   ${PCL_INCLUDE_DIRS}
 )
-target_link_libraries(li_init_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} Eigen3::Eigen)
+
+target_link_libraries(li_init_mapping ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} Eigen3::Eigen Ceres::ceres)
+
 target_include_directories(li_init_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})
 
-list(APPEND EOL_LIST "foxy" "galactic" "eloquent" "dashing" "crystal" "humble")
+list(APPEND EOL_LIST "foxy" "galactic" "eloquent" "dashing" "crystal")
 
 if($ENV{ROS_DISTRO} IN_LIST EOL_LIST)
   # Custommsg to support foxy & galactic
@@ -129,7 +131,7 @@ install(TARGETS li_init_mapping
 )
 
 install(
-  DIRECTORY config launch rviz
+  DIRECTORY config launch
   DESTINATION share/${PROJECT_NAME}
 )
 

@@ -340,7 +340,7 @@ private:
     deque<CalibState> IMU_state_group;
     deque<CalibState> Lidar_state_group;
     deque<CalibState> IMU_state_group_ALL;
-
+    std::vector<std::unique_ptr<ceres::Manifold>> manifolds_;
 
     /// Parameters needed to be calibrated
     M3D Rot_Grav_wrt_Init_Lidar;  // Rotation from inertial frame G to initial Lidar frame L_0
