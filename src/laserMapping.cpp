@@ -33,9 +33,13 @@
 // ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 // POSSIBILITY OF SUCH DAMAGE.
 #include <omp.h>
-#include "IMU_Processing.hpp"
 #include <unistd.h>
 #include <Python.h>
+#include <thread>
+#include <fstream>
+#include <csignal>
+#include <chrono>
+#include <so3_math.h>
 #include <Eigen/Core>
 #include <rclcpp/rclcpp.hpp>
 #include <ament_index_cpp/get_package_share_directory.hpp>
@@ -56,6 +60,14 @@
 #include <ikd-Tree/ikd_Tree.h>
 #include <LI_init/LI_init.h>
 #include <filesystem> 
+#include <visualization_msgs/msg/marker.hpp>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <sensor_msgs/msg/imu.hpp>
+#include <std_srvs/srv/trigger.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
+#include "IMU_Processing.hpp"
 
 #ifndef DEPLOY
 #include "matplotlibcpp.h"
@@ -781,6 +793,7 @@ void printProgress(double percentage) {
 
 int main(int argc, char **argv) {
     rclcpp::init(argc, argv);
+
     auto node = rclcpp::Node::make_shared("laserMapping");
 
     node->declare_parameter<int>("max_iteration", 4);
@@ -918,13 +931,18 @@ int main(int argc, char **argv) {
 
 
         /*** ROS2 subscribe/publish initialization ***/
+        rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;
+        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;
+
         if (p_pre->lidar_type == AVIA)
         {
-            auto sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, livox_pcl_cbk);
+            sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(
+                lid_topic, 20, livox_pcl_cbk);
         }
         else
         {
-            auto sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
+            sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(
+                lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
         }
 
         auto sub_imu_ = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
