@@ -930,29 +930,27 @@ int main(int argc, char **argv) {
 
 
 
-        /*** ROS2 subscribe/publish initialization ***/
-        rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;
-        rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;
+    /*** ROS2 subscribe/publish initialization ***/
+    rclcpp::Subscription<livox_ros_driver2::msg::CustomMsg>::SharedPtr sub_pcl_livox_;
+    rclcpp::Subscription<sensor_msgs::msg::PointCloud2>::SharedPtr sub_pcl_pc_;
 
-        if (p_pre->lidar_type == AVIA)
-        {
-            sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(
-                lid_topic, 20, livox_pcl_cbk);
-        }
-        else
-        {
-            sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(
-                lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
-        }
+    if (p_pre->lidar_type == AVIA)
+    {
+        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(id_topic, 20, livox_pcl_cbk);
+    }
+    else
+    {
+        sub_pcl_pc_ = node->create_subscription<sensor_msgs::msg::PointCloud2>(lid_topic, rclcpp::SensorDataQoS(), standard_pcl_cbk);
+    }
 
-        auto sub_imu_ = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
+    auto sub_imu_ = node->create_subscription<sensor_msgs::msg::Imu>(imu_topic, 10, imu_cbk);
 
-        auto pubLaserCloudFullRes = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 10);
-        auto pubLaserCloudFullRes_body = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_body", 10);
-        auto pubLaserCloudEffect = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 10);
-        auto pubLaserCloudMap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/Laser_map", 10);
-        auto pubOdomAftMapped = node->create_publisher<nav_msgs::msg::Odometry>("/aft_mapped_to_init", 10);
-        auto pubPath = node->create_publisher<nav_msgs::msg::Path>("/path", 10);
+    auto pubLaserCloudFullRes = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 10);
+    auto pubLaserCloudFullRes_body = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_body", 10);
+    auto pubLaserCloudEffect = node->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_effected", 10);
+    auto pubLaserCloudMap = node->create_publisher<sensor_msgs::msg::PointCloud2>("/Laser_map", 10);
+    auto pubOdomAftMapped = node->create_publisher<nav_msgs::msg::Odometry>("/aft_mapped_to_init", 10);
+    auto pubPath = node->create_publisher<nav_msgs::msg::Path>("/path", 10);
 
 //------------------------------------------------------------------------------------------------------
     signal(SIGINT, SigHandle);
