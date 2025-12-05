@@ -336,7 +336,7 @@ void lasermap_fov_segment() {
 double timediff_imu_wrt_lidar = 0.0;
 bool timediff_set_flg = false;
 
-void livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::ConstSharedPtr &msg) {
+void livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::UniquePtr &msg) {
     mtx_buffer.lock();
     scan_count++;
     if (stamp_to_sec(msg->header.stamp) < last_timestamp_lidar) {
@@ -373,7 +373,7 @@ void livox_pcl_cbk(const livox_ros_driver2::msg::CustomMsg::ConstSharedPtr &msg)
     sig_buffer.notify_all();
 }
 
-void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
+void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::UniquePtr msg) {
     mtx_buffer.lock();
     scan_count++;
     if (stamp_to_sec(msg->header.stamp) < last_timestamp_lidar) {
@@ -409,7 +409,7 @@ void standard_pcl_cbk(const sensor_msgs::msg::PointCloud2::ConstSharedPtr msg) {
     sig_buffer.notify_all();
 }
 
-void imu_cbk(const sensor_msgs::msg::Imu::ConstSharedPtr msg_in) {
+void imu_cbk(const sensor_msgs::msg::Imu::UniquePtr msg_in) {
     publish_count++;
     mtx_buffer.lock();
 
@@ -936,7 +936,7 @@ int main(int argc, char **argv) {
 
     if (p_pre->lidar_type == AVIA)
     {
-        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(id_topic, 20, livox_pcl_cbk);
+        sub_pcl_livox_ = node->create_subscription<livox_ros_driver2::msg::CustomMsg>(lid_topic, 20, livox_pcl_cbk);
     }
     else
     {
